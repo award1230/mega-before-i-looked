@@ -30,5 +30,8 @@ export type Night = {
   badLines: number;
 };
 
+// Run lines per status across a night, plus lines that did not parse.
+export type NightCounts = Record<RunStatus, number> & { badLines: number };
+
 // Returns null when runs/<night>.jsonl does not exist. An empty file is a night with no rows.
 export type ReadNight = (runsDir: string, night: string) => Night | null;

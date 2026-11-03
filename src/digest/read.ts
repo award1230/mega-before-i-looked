@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { DigestRow, Night, ReadNight, RunLine, RunStatus } from './types.js';
+import type { DigestRow, NightCounts, ReadNight, RunLine, RunStatus } from './types.js';
 
 const STATUSES: readonly RunStatus[] = ['ok', 'retry', 'fail'];
 const NIGHT = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,7 +50,8 @@ export function summarize(lines: RunLine[]): DigestRow[] {
   return [...byJob.values()].sort((a, b) => a.job.localeCompare(b.job));
 }
 
-export const readNight: ReadNight = (runsDir, night) => {
+// The one place a night's file is read and parsed; null when the night has no file.
+function loadNight(runsDir: string, night: string): { lines: RunLine[]; badLines: number } | null {
   if (!NIGHT.test(night)) return null;
   let text: string;
   try {
@@ -66,5 +67,20 @@ export const readNight: ReadNight = (runsDir, night) => {
     if (line) lines.push(line);
     else badLines++;
   }
-  return { night, rows: summarize(lines), badLines };
+  return { lines, badLines };
+}
+
+export const readNight: ReadNight = (runsDir, night) => {
+  const loaded = loadNight(runsDir, night);
+  if (!loaded) return null;
+  return { night, rows: summarize(loaded.lines), badLines: loaded.badLines };
 };
+
+// Run lines per status across the whole night (not per job), plus lines that failed to parse.
+export function countNight(runsDir: string, night: string): NightCounts | null {
+  const loaded = loadNight(runsDir, night);
+  if (!loaded) return null;
+  const counts: NightCounts = { ok: 0, retry: 0, fail: 0, badLines: loaded.badLines };
+  for (const l of loaded.lines) counts[l.status]++;
+  return counts;
+}
